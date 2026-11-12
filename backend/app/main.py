@@ -10,6 +10,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 from sqlalchemy import delete, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from .db import Change, LoginFailure, Record, SessionToken, User, get_db, utcnow
 from .schemas import Credentials, KIND_SCHEMAS, Mutation, PushRequest, RefreshRequest
@@ -71,9 +72,17 @@ def register(body: Credentials, db: Session = Depends(get_db)):
     if db.scalar(select(User.id).where(User.email == email)):
         raise HTTPException(409, 'E-Mail-Adresse bereits registriert')
     user = User(id=str(uuid4()), email=email, password_hash=password_hasher.hash(body.password))
-    db.add(user)
-    response = tokens(db, user.id)
-    db.commit()
+    try:
+        db.add(user)
+        # Persist the parent first: session_tokens.user_id has an enforced FK on PostgreSQL.
+        # Without a flush SQLAlchemy may INSERT the tokens before the user.
+        db.flush()
+        response = tokens(db, user.id)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        # Also handle concurrent registration attempts for the same email safely.
+        raise HTTPException(409, 'E-Mail-Adresse bereits registriert')
     return response
 
 

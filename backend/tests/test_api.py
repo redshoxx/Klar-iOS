@@ -67,3 +67,15 @@ def test_rate_limit_and_auth(client):
         r=client.post('/v1/auth/login',json={'email':'test@example.com','password':'IncorrectPassword123!'})
         assert r.status_code==401
     assert client.post('/v1/auth/login',json={'email':'test@example.com','password':'IncorrectPassword123!'}).status_code==429
+
+def test_registration_persists_parent_before_session_tokens(client):
+    """Regression: PostgreSQL rejects token rows referring to an unflushed user."""
+    email = 'foreign-key-regression@example.com'
+    credentials = signup(client, email)
+    assert client.get('/v1/me', headers=headers(credentials)).json()['email'] == email
+    assert client.post('/v1/auth/login', json={
+        'email': email, 'password': 'VerySecurePassword123!'
+    }).status_code == 200
+    assert client.post('/v1/auth/register', json={
+        'email': email, 'password': 'VerySecurePassword123!'
+    }).status_code == 409
