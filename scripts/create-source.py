@@ -48,6 +48,7 @@ def create_source(ipa: Path, base_url: str, output: Path, icon: Path,
             'iconURL': base + '/icon.png', 'tintColor': '#3F7850',
             'versions': [{
                 'version': version,
+                'buildVersion': str(build),
                 'date': date.today().isoformat(),
                 'localizedDescription': 'Erstveröffentlichung',
                 'downloadURL': base + '/releases/' + ipa.name,
