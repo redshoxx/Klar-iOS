@@ -101,7 +101,7 @@ jobs:
             --out 'dist/source-preview/source.json' \
             --icon 'ios/Klar/Assets.xcassets/AppIcon.appiconset/AppIcon.png' \
             --version "$VERSION" --build "$BUILD"
-          shasum -a 256 "$IPA" | tee "dist/$(basename "$IPA").sha256"
+          (cd dist && shasum -a 256 "$(basename "$IPA")") | tee "dist/$(basename "$IPA").sha256"
           python3 -m json.tool dist/source-preview/source.json >/dev/null
 
       - name: IPA als GitHub-Actions-Artefakt speichern
