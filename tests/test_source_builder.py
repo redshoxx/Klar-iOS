@@ -35,6 +35,7 @@ def test_source_contains_real_size_and_valid_urls(tmp_path):
     assert source == obj
     version = obj['apps'][0]['versions'][0]
     assert version['size'] == ipa.stat().st_size
+    assert version['buildVersion'] == '1'
     assert version['downloadURL'].startswith('https://apps.example.test/releases/')
     assert (out.parent/'releases'/ipa.name).read_bytes() == ipa.read_bytes()
     assert (out.parent/'icon.png').read_bytes() == icon.read_bytes()
