@@ -117,14 +117,12 @@ jobs:
 
   release:
     name: GitHub-Release der IPA
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     needs: ipa
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Git-Tag prüfen
-        uses: actions/checkout@v4
       - name: Gebaute IPA herunterladen
         uses: actions/download-artifact@v4
         with:
@@ -141,10 +139,17 @@ jobs:
           set -euo pipefail
           IPA="dist/Klar-${VERSION}-build${BUILD}.ipa"
           test -s "$IPA"
-          RELEASE_NOTES="Automatisch auf GitHub Actions mit macOS/Xcode gebaut. Unsigned IPA für SideStore. Build ${BUILD}."
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" "$IPA" "$IPA.sha256" --clobber
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            TAG="$GITHUB_REF_NAME"
+            RELEASE_ARGS=(--verify-tag)
           else
-            gh release create "$GITHUB_REF_NAME" "$IPA" "$IPA.sha256" \
-              --title "Klar. ${VERSION}" --notes "$RELEASE_NOTES" --verify-tag
+            TAG="build-${GITHUB_RUN_NUMBER}"
+            RELEASE_ARGS=(--target "$GITHUB_SHA" --prerelease)
+          fi
+          RELEASE_NOTES="Automatisch mit GitHub Actions, macOS und Xcode gebaut. Unsigned IPA für SideStore. Version ${VERSION}, Build ${BUILD}."
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$IPA" "$IPA.sha256" --clobber
+          else
+            gh release create "$TAG" "$IPA" "$IPA.sha256" \
+              --title "Klar. ${VERSION} (Build ${BUILD})" --notes "$RELEASE_NOTES" "${RELEASE_ARGS[@]}"
           fi
