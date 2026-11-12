@@ -1,0 +1,150 @@
+name: Klar iOS – IPA
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Versionsnummer für einen manuellen Testbuild, z. B. 1.0.1'
+        required: false
+        default: '1.0.0'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: klar-ios-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  tests:
+    name: Backend- und Source-Tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Quellcode laden
+        uses: actions/checkout@v4
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+      - name: Abhängigkeiten installieren
+        run: python -m pip install -r backend/requirements-dev.txt
+      - name: FastAPI-Tests ausführen
+        run: cd backend && PYTHONPATH=. python -m pytest -q
+      - name: SideStore-Source testen
+        run: python -m pytest -q tests/
+
+  ipa:
+    name: Xcode Release / unsigned IPA
+    runs-on: macos-15
+    needs: tests
+    timeout-minutes: 45
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      build: ${{ steps.version.outputs.build }}
+    permissions:
+      contents: read
+    steps:
+      - name: Quellcode laden
+        uses: actions/checkout@v4
+
+      - name: Version und Buildnummer festlegen
+        id: version
+        shell: bash
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          elif [[ -n "${INPUT_VERSION:-}" ]]; then
+            VERSION="$INPUT_VERSION"
+          else
+            VERSION="$(sed -nE "s/^[[:space:]]*MARKETING_VERSION: '?([0-9]+\.[0-9]+\.[0-9]+)'?$/\1/p" ios/project.yml | head -n 1)"
+          fi
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Ungültige Version: $VERSION" >&2; exit 2; }
+          BUILD="$GITHUB_RUN_NUMBER"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "BUILD=$BUILD" >> "$GITHUB_ENV"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "build=$BUILD" >> "$GITHUB_OUTPUT"
+          echo "Version $VERSION ($BUILD)"
+
+      - name: Xcode und Buildsystem prüfen
+        run: |
+          xcodebuild -version
+          xcode-select -p
+          brew install xcodegen
+          xcodegen --version
+
+      - name: IPA aus SwiftUI-Quellcode erstellen
+        shell: bash
+        run: bash scripts/build-ipa-macos.sh
+
+      - name: IPA und SideStore-Metadaten prüfen
+        shell: bash
+        env:
+          KLAR_SOURCE_BASE_URL: ${{ vars.KLAR_SOURCE_URL || 'https://apps.152.53.206.242.sslip.io' }}
+        run: |
+          set -euo pipefail
+          IPA="dist/Klar-${VERSION}-build${BUILD}.ipa"
+          python3 scripts/create-source.py \
+            --ipa "$IPA" \
+            --base-url "$KLAR_SOURCE_BASE_URL" \
+            --out 'dist/source-preview/source.json' \
+            --icon 'ios/Klar/Assets.xcassets/AppIcon.appiconset/AppIcon.png' \
+            --version "$VERSION" --build "$BUILD"
+          shasum -a 256 "$IPA" | tee "dist/$(basename "$IPA").sha256"
+          python3 -m json.tool dist/source-preview/source.json >/dev/null
+
+      - name: IPA als GitHub-Actions-Artefakt speichern
+        uses: actions/upload-artifact@v4
+        with:
+          name: Klar-${{ steps.version.outputs.version }}-build${{ steps.version.outputs.build }}
+          path: |
+            dist/*.ipa
+            dist/*.sha256
+            dist/source-preview/source.json
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    name: GitHub-Release der IPA
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: ipa
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Git-Tag prüfen
+        uses: actions/checkout@v4
+      - name: Gebaute IPA herunterladen
+        uses: actions/download-artifact@v4
+        with:
+          name: Klar-${{ needs.ipa.outputs.version }}-build${{ needs.ipa.outputs.build }}
+          path: dist
+      - name: Versioniertes Release erstellen
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.ipa.outputs.version }}
+          BUILD: ${{ needs.ipa.outputs.build }}
+        run: |
+          set -euo pipefail
+          IPA="dist/Klar-${VERSION}-build${BUILD}.ipa"
+          test -s "$IPA"
+          RELEASE_NOTES="Automatisch auf GitHub Actions mit macOS/Xcode gebaut. Unsigned IPA für SideStore. Build ${BUILD}."
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$IPA" "$IPA.sha256" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "$IPA" "$IPA.sha256" \
+              --title "Klar. ${VERSION}" --notes "$RELEASE_NOTES" --verify-tag
+          fi

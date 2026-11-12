@@ -1,0 +1,27 @@
+{
+  "name": "Klar. – Private App Source",
+  "identifier": "at.klar.sidestore",
+  "sourceURL": "https://apps.DEINE-DOMAIN.at/source.json",
+  "apps": [
+    {
+      "name": "Klar.",
+      "bundleIdentifier": "at.klar.app",
+      "developerName": "Private Distribution",
+      "subtitle": "Aufgaben, Finanzen und Einkaufslisten",
+      "localizedDescription": "Dein Alltag in einer App. Offline-First, eigene VPS-Synchronisation, Fixkosten, Aufgaben und Einkauf.",
+      "iconURL": "https://apps.DEINE-DOMAIN.at/icon.png",
+      "tintColor": "#3F7850",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "date": "2026-11-12",
+          "localizedDescription": "Erstveröffentlichung",
+          "downloadURL": "https://apps.DEINE-DOMAIN.at/releases/Klar-1.0.0.ipa",
+          "size": 0,
+          "minOSVersion": "17.0"
+        }
+      ]
+    }
+  ],
+  "news": []
+}

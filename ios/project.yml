@@ -1,0 +1,37 @@
+name: Klar
+options:
+  bundleIdPrefix: at.klar
+  deploymentTarget:
+    iOS: '17.0'
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: '5.9'
+    TARGETED_DEVICE_FAMILY: '1'
+    IPHONEOS_DEPLOYMENT_TARGET: '17.0'
+    MARKETING_VERSION: '1.0.0'
+    CURRENT_PROJECT_VERSION: '1'
+    SWIFT_STRICT_CONCURRENCY: minimal
+    CODE_SIGN_STYLE: Automatic
+    ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+targets:
+  Klar:
+    type: application
+    platform: iOS
+    sources:
+      - path: Klar
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: at.klar.app
+        INFOPLIST_KEY_CFBundleDisplayName: Klar.
+        INFOPLIST_KEY_NSFaceIDUsageDescription: Face ID schützt deine persönlichen Aufgaben und Finanzdaten.
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+        GENERATE_INFOPLIST_FILE: YES
+    scheme:
+      testTargets: []
+      gatherCoverageData: false

@@ -1,0 +1,18 @@
+api.DEINE-DOMAIN.at {
+  encode zstd gzip
+  reverse_proxy api:8000
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    X-Content-Type-Options "nosniff"
+    Referrer-Policy "no-referrer"
+  }
+}
+apps.DEINE-DOMAIN.at {
+  root * /srv/web
+  file_server
+  encode zstd gzip
+  header {
+    X-Content-Type-Options "nosniff"
+    Cache-Control "public, max-age=300"
+  }
+}
