@@ -37,3 +37,9 @@ def test_validates_real_plist_and_mach_o():
     module.validate_ipa(obj.getvalue(),version='1.0.0',build='12')
     with pytest.raises(ValueError, match='version'):
         module.validate_ipa(obj.getvalue(),version='1.0.0',build='13')
+
+
+def test_checksum_parser_accepts_release_path():
+    match = module.HASH_PATTERN.fullmatch('a'*64 + '  dist/Klar-1.0.0-build7.ipa')
+    assert match is not None
+    assert Path(match.group(2)).name == 'Klar-1.0.0-build7.ipa'
