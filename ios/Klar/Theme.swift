@@ -93,7 +93,7 @@ struct TaskRow: View {
                 Text(task.title).font(.subheadline.weight(.medium))
                     .strikethrough(task.completed).foregroundStyle(task.completed ? .secondary : .primary)
                 if let due = task.dueAt {
-                    Text(due,format:.dateTime.day().month(.abbreviated()).hour().minute())
+                    Text(due,format:.dateTime.day().month(.abbreviated).hour().minute())
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
