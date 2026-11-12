@@ -123,7 +123,7 @@ def main() -> int:
         return 0
     checksum = fetch_bytes(checksum_asset['browser_download_url'], max_bytes=1024).decode('utf-8').strip()
     match = HASH_PATTERN.fullmatch(checksum)
-    if match is None or match.group(2) != name:
+    if match is None or Path(match.group(2)).name != name:
         raise ValueError('Malformed release sha256 file')
     payload = fetch_bytes(asset['browser_download_url'], max_bytes=MAX_IPA_BYTES)
     if hashlib.sha256(payload).hexdigest().lower() != match.group(1).lower():
@@ -137,7 +137,7 @@ def main() -> int:
             raise ValueError('Icon is not a PNG')
         atomic_write(WEB_ROOT / 'icon.png', icon)
     atomic_write(release_dir / name, payload)
-    atomic_write(release_dir / (name + '.sha256'), (checksum + '\n').encode('ascii'))
+    atomic_write(release_dir / (name + '.sha256'), (match.group(1).lower() + '  ' + name + '\n').encode('ascii'))
     updated = make_source(old, version=version, build=build, name=name, size=len(payload), published_at=release.get('published_at') or '')
     # Publish metadata last so clients never see a reference to an incomplete IPA.
     atomic_write(source_path, (json.dumps(updated, ensure_ascii=False, indent=2) + '\n').encode('utf-8'))
